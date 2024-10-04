@@ -2,8 +2,16 @@ use std::{thread, time};
 use rand;
 use rand::Rng;
 
+use crossterm::{
+    cursor,
+    execute,
+    terminal::{self, ClearType},
+    ExecutableCommand,
+};
+use std::io::{stdout, Write};
+
 static BCHAR : char = ' ';
-static COLUMNS: usize = 95; 
+static COLUMNS: usize = 80; 
 static VIEWPORT_HEIGHT : usize = 25;
 
 fn clear_term() {
@@ -40,35 +48,45 @@ fn main() {
     println!("wake up, neo");
 
     // feature flags
-    let auto_quit_enabled = false;
+    // todo: switching to crossterm breaks CTRL+C exit; fix it before disabling auto-quit
+    let auto_quit_enabled = true;
     let blocks_enabled = true;
-    let char_swapping_enabled = true;
+    let char_adding_enabled = true;
+    let char_swapping_enabled = false;
+    let sliding_viewport_enabled = false;
+
+    let frame_period = time::Duration::from_millis(5);
+    let animation_length = time::Duration::from_millis(10000);
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
     matrix.push(vec![BCHAR; COLUMNS]);
 
-    let frame_period = time::Duration::from_millis(5);
-    let animation_length = time::Duration::from_millis(5000); // 5 sec
     let start = time::Instant::now();
+
+    terminal::enable_raw_mode().unwrap();
+    let mut stdout = stdout(); // Call the function to get the handle
+    stdout.execute(terminal::Clear(ClearType::All)).unwrap();
 
     // paint loop
     loop {
-        clear_term();
 
         // add new char to the matrix
-        let new_char = random_ascii() as char; 
         let col = random_number(COLUMNS) as usize;
         let row = col_height(&matrix, col);
-        if row == matrix.len() {
-            matrix.push(vec![BCHAR; COLUMNS]);
+        if char_adding_enabled {
+            let new_char = random_ascii() as char; 
+            if row == matrix.len() {
+                matrix.push(vec![BCHAR; COLUMNS]);
+            }
+            matrix[row][col] = new_char;
         }
-        matrix[row][col] = new_char;
 
         // swap chars
         if char_swapping_enabled {
             let swap_char = random_ascii() as char; 
             let swap_col = random_number(COLUMNS) as usize;
             let swap_row = random_number(col_height(&matrix, col)) as usize;
+            //let swap_row = 0;
             matrix[swap_row][swap_col] = swap_char;
         }  
 
@@ -85,14 +103,20 @@ fn main() {
         }
 
         // sliding viewport
-        if row > (VIEWPORT_HEIGHT as u32).try_into().unwrap() {
-            matrix.remove(0);
-        }
+        if sliding_viewport_enabled {
+            if row > (VIEWPORT_HEIGHT as u32).try_into().unwrap() {
+                matrix.remove(0);
+            }
+        } 
 
         // paint it
+        stdout.execute(cursor::MoveTo(0, 0)).unwrap();
+        let mut count = 0;
         for row in matrix.iter() {
             let s : String = row.into_iter().collect();
-            println!("{}", s);
+            print!("{}", s);
+            stdout.execute(cursor::MoveTo(0, count)).unwrap();
+            count += 1;
         }  
 
         thread::sleep(frame_period); // animation speed
@@ -104,4 +128,6 @@ fn main() {
             }
         }
     }
+
+    terminal::disable_raw_mode().unwrap();
 }
