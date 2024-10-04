@@ -10,8 +10,8 @@ fn clear_term() {
     print!("\x1Bc");
 }
 
-fn random_number(n : u32) -> u32 {
-    rand::thread_rng().gen_range(0..n)
+fn random_number(n : usize) -> u32 {
+    rand::thread_rng().gen_range(0..n as u32)
 }
 
 fn random_ascii() -> u8 {
@@ -42,6 +42,7 @@ fn main() {
     // feature flags
     let auto_quit_enabled = false;
     let blocks_enabled = true;
+    let char_swapping_enabled = true;
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
     matrix.push(vec![BCHAR; COLUMNS]);
@@ -56,12 +57,20 @@ fn main() {
 
         // add new char to the matrix
         let new_char = random_ascii() as char; 
-        let col = random_number(COLUMNS as u32) as usize;
+        let col = random_number(COLUMNS) as usize;
         let row = col_height(&matrix, col);
         if row == matrix.len() {
             matrix.push(vec![BCHAR; COLUMNS]);
         }
         matrix[row][col] = new_char;
+
+        // swap chars
+        if char_swapping_enabled {
+            let swap_char = random_ascii() as char; 
+            let swap_col = random_number(COLUMNS) as usize;
+            let swap_row = random_number(col_height(&matrix, col)) as usize;
+            matrix[swap_row][swap_col] = swap_char;
+        }  
 
         // divide into blocks
         if blocks_enabled {
@@ -76,7 +85,7 @@ fn main() {
         }
 
         // sliding viewport
-        if row > VIEWPORT_HEIGHT {
+        if row > (VIEWPORT_HEIGHT as u32).try_into().unwrap() {
             matrix.remove(0);
         }
 
