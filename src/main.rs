@@ -3,7 +3,8 @@ use rand;
 use rand::Rng;
 
 static BCHAR : char = ' ';
-static COLUMNS: usize = 90; 
+static COLUMNS: usize = 95; 
+static VIEWPORT_HEIGHT : usize = 25;
 
 fn clear_term() {
     print!("\x1Bc");
@@ -29,15 +30,23 @@ fn col_height(m: &Vec<Vec<char>>, c: usize) -> usize {
     return count
 }
 
+fn clear_col(m: &mut Vec<Vec<char>>, c: usize) {
+    for row in m.iter_mut() {
+        row[c] = BCHAR;
+    }
+}
+
 fn main() {
     println!("wake up, neo");
 
-    let quit_timer = false;
+    // feature flags
+    let auto_quit_enabled = false;
+    let blocks_enabled = true;
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
     matrix.push(vec![BCHAR; COLUMNS]);
 
-    let frame_period = time::Duration::from_millis(15);
+    let frame_period = time::Duration::from_millis(5);
     let animation_length = time::Duration::from_millis(5000); // 5 sec
     let start = time::Instant::now();
 
@@ -54,6 +63,23 @@ fn main() {
         }
         matrix[row][col] = new_char;
 
+        // divide into blocks
+        if blocks_enabled {
+            let block_size = COLUMNS / 5;
+            let divisible_numbers: Vec<usize> = (0..COLUMNS-1) // -1 to clear two columns
+                .filter(|&x| x % block_size == 0)
+                .collect();
+            for i in divisible_numbers {
+                clear_col(&mut matrix, i);
+                clear_col(&mut matrix, i+1);
+            }
+        }
+
+        // sliding viewport
+        if row > VIEWPORT_HEIGHT {
+            matrix.remove(0);
+        }
+
         // paint it
         for row in matrix.iter() {
             let s : String = row.into_iter().collect();
@@ -62,7 +88,8 @@ fn main() {
 
         thread::sleep(frame_period); // animation speed
 
-        if quit_timer {
+        // auto-quit
+        if auto_quit_enabled {
             if start.elapsed() >= animation_length {
                 break;
             }
