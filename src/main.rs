@@ -12,10 +12,6 @@ use std::io::{stdout, Write};
 
 static BCHAR : char = ' ';
 
-fn clear_term() {
-    print!("\x1Bc");
-}
-
 fn random_number(n : usize) -> u32 {
     rand::thread_rng().gen_range(0..n as u32)
 }
@@ -51,17 +47,20 @@ fn main() {
 
     // feature flags
     // todo: switching to crossterm breaks CTRL+C exit; fix it before disabling auto-quit
-    let auto_quit_enabled = false;
+    let auto_quit_enabled = true;
     let blocks_enabled = true;
     let char_adding_enabled = true;
     let char_swapping_enabled = true;
     let sliding_viewport_enabled = true;
+    let column_fade_enabled = true;
 
-    let frame_period = time::Duration::from_millis(5);
+    let frame_period = time::Duration::from_millis(3);
     let animation_length = time::Duration::from_millis(10000);
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
     matrix.push(vec![BCHAR; term_columns]);
+
+    let mut recent_rows = vec![0; term_columns];
 
     let start = time::Instant::now();
 
@@ -74,20 +73,21 @@ fn main() {
 
         // add new char to the matrix
         let col = random_number(term_columns) as usize;
-        let row = col_height(&matrix, col);
+        let row = recent_rows[col];
         if char_adding_enabled {
             let new_char = random_ascii() as char; 
-            if row == matrix.len() {
+            if row >= matrix.len() {
                 matrix.push(vec![BCHAR; term_columns]);
             }
             matrix[row][col] = new_char;
+            recent_rows[col] = row + 1;
         }
 
         // swap chars
         if char_swapping_enabled {
             let swap_char = random_ascii() as char; 
             let swap_col = random_number(term_columns) as usize;
-            let swap_row = random_number(col_height(&matrix, col)) as usize;
+            let swap_row = random_number(recent_rows[col]) as usize;
             matrix[swap_row][swap_col] = swap_char;
         }  
 
@@ -103,10 +103,23 @@ fn main() {
             }
         }
 
+        // column "fade"
+        if column_fade_enabled {
+            let stream_height = 15;
+            if recent_rows[col] > stream_height {
+                matrix[recent_rows[col]-stream_height][col] = BCHAR;
+            }
+        }
+
         // sliding viewport
         if sliding_viewport_enabled {
             if row > (term_height as u32).try_into().unwrap() {
                 matrix.remove(0);
+                for i in recent_rows.iter_mut() {
+                    if *i  > 0 {
+                        *i -= 1;
+                    }
+                }
             }
         } 
 
