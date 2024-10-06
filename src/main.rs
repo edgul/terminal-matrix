@@ -11,8 +11,6 @@ use crossterm::{
 use std::io::{stdout, Write};
 
 static BCHAR : char = ' ';
-static COLUMNS: usize = 80; 
-static VIEWPORT_HEIGHT : usize = 25;
 
 fn clear_term() {
     print!("\x1Bc");
@@ -47,36 +45,40 @@ fn clear_col(m: &mut Vec<Vec<char>>, c: usize) {
 fn main() {
     println!("wake up, neo");
 
+    let (col, row) = terminal::size().unwrap();
+    let term_columns: usize = col as usize;
+    let term_height : usize = row as usize;
+
     // feature flags
     // todo: switching to crossterm breaks CTRL+C exit; fix it before disabling auto-quit
-    let auto_quit_enabled = true;
+    let auto_quit_enabled = false;
     let blocks_enabled = true;
     let char_adding_enabled = true;
-    let char_swapping_enabled = false;
-    let sliding_viewport_enabled = false;
+    let char_swapping_enabled = true;
+    let sliding_viewport_enabled = true;
 
     let frame_period = time::Duration::from_millis(5);
     let animation_length = time::Duration::from_millis(10000);
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
-    matrix.push(vec![BCHAR; COLUMNS]);
+    matrix.push(vec![BCHAR; term_columns]);
 
     let start = time::Instant::now();
 
-    terminal::enable_raw_mode().unwrap();
     let mut stdout = stdout(); // Call the function to get the handle
     stdout.execute(terminal::Clear(ClearType::All)).unwrap();
 
     // paint loop
     loop {
+        terminal::enable_raw_mode().unwrap();
 
         // add new char to the matrix
-        let col = random_number(COLUMNS) as usize;
+        let col = random_number(term_columns) as usize;
         let row = col_height(&matrix, col);
         if char_adding_enabled {
             let new_char = random_ascii() as char; 
             if row == matrix.len() {
-                matrix.push(vec![BCHAR; COLUMNS]);
+                matrix.push(vec![BCHAR; term_columns]);
             }
             matrix[row][col] = new_char;
         }
@@ -84,16 +86,15 @@ fn main() {
         // swap chars
         if char_swapping_enabled {
             let swap_char = random_ascii() as char; 
-            let swap_col = random_number(COLUMNS) as usize;
+            let swap_col = random_number(term_columns) as usize;
             let swap_row = random_number(col_height(&matrix, col)) as usize;
-            //let swap_row = 0;
             matrix[swap_row][swap_col] = swap_char;
         }  
 
         // divide into blocks
         if blocks_enabled {
-            let block_size = COLUMNS / 5;
-            let divisible_numbers: Vec<usize> = (0..COLUMNS-1) // -1 to clear two columns
+            let block_size = term_columns / 5;
+            let divisible_numbers: Vec<usize> = (0..term_columns-1) // -1 to clear two columns
                 .filter(|&x| x % block_size == 0)
                 .collect();
             for i in divisible_numbers {
@@ -104,7 +105,7 @@ fn main() {
 
         // sliding viewport
         if sliding_viewport_enabled {
-            if row > (VIEWPORT_HEIGHT as u32).try_into().unwrap() {
+            if row > (term_height as u32).try_into().unwrap() {
                 matrix.remove(0);
             }
         } 
@@ -119,6 +120,8 @@ fn main() {
             count += 1;
         }  
 
+        // disable raw mode before sleep so ctrl+C to quit still works
+        terminal::disable_raw_mode().unwrap();
         thread::sleep(frame_period); // animation speed
 
         // auto-quit
@@ -128,6 +131,4 @@ fn main() {
             }
         }
     }
-
-    terminal::disable_raw_mode().unwrap();
 }
