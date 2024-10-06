@@ -1,6 +1,6 @@
-# Ascii matrix
+# Terminal matrix
 
-A badly named and janky text-based matrix animation for terminal viewing.
+A text-based matrix animation for terminal viewing.
 
 ## Some features:
 * sliding viewport
