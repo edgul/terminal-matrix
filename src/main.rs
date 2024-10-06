@@ -21,17 +21,6 @@ fn random_ascii() -> u8 {
     rand::thread_rng().gen_range(33..126)
 }
 
-fn col_height(m: &Vec<Vec<char>>, c: usize) -> usize {
-    let mut count = 0;
-    for row in m.iter() {
-        if row[c] == BCHAR {
-            return count;
-        }
-        count += 1;
-    }
-    return count
-}
-
 fn clear_col(m: &mut Vec<Vec<char>>, c: usize) {
     for row in m.iter_mut() {
         row[c] = BCHAR;
@@ -46,20 +35,18 @@ fn main() {
     let term_height : usize = row as usize;
 
     // feature flags
-    // todo: switching to crossterm breaks CTRL+C exit; fix it before disabling auto-quit
-    let auto_quit_enabled = true;
+    let auto_quit_enabled = false;
     let blocks_enabled = true;
     let char_adding_enabled = true;
     let char_swapping_enabled = true;
     let sliding_viewport_enabled = true;
     let column_fade_enabled = true;
 
-    let frame_period = time::Duration::from_millis(3);
+    let frame_period = time::Duration::from_millis(1);
     let animation_length = time::Duration::from_millis(10000);
 
     let mut matrix : Vec<Vec<char>> = Vec::new();
     matrix.push(vec![BCHAR; term_columns]);
-
     let mut recent_rows = vec![0; term_columns];
 
     let start = time::Instant::now();
@@ -69,8 +56,6 @@ fn main() {
 
     // paint loop
     loop {
-        terminal::enable_raw_mode().unwrap();
-
         // add new char to the matrix
         let col = random_number(term_columns) as usize;
         let row = recent_rows[col];
@@ -133,8 +118,6 @@ fn main() {
             count += 1;
         }  
 
-        // disable raw mode before sleep so ctrl+C to quit still works
-        terminal::disable_raw_mode().unwrap();
         thread::sleep(frame_period); // animation speed
 
         // auto-quit
