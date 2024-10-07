@@ -3,7 +3,9 @@
 A text-based matrix animation for terminal viewing.
 
 ## Some features:
-* sliding viewport
-* character swapping
-* blocked output 
-* auto quit
+* character streams have fixed length
+* streams fall continuously
+* streams fall at different rates
+* character swapping on streams
+* blocked output
+* timed or endless mode

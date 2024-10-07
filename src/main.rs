@@ -13,6 +13,9 @@ use std::io::{stdout, Write};
 mod matrix;
 use matrix::Matrix;
 
+static PRIORITY_COUNTER_INIT : usize = 3;
+static CHAR_SWAP_FACTOR : usize = 5;
+
 fn random_number(n : usize) -> usize {
     rand::thread_rng().gen_range(0..n as u32) as usize
 }
@@ -30,14 +33,12 @@ fn main() {
     // feature flags
     let auto_quit_enabled = false;
     let blocks_enabled = true;
-    let char_adding_enabled = true;
     let char_swapping_enabled = true;
-    let sliding_viewport_enabled = true;
     let column_fade_enabled = true;
 
-    let fade_height = 10;
-    let frame_period = time::Duration::from_millis(3);
+    let frame_period = time::Duration::from_millis(5);
     let animation_length = time::Duration::from_millis(10000);
+    let mut priority_counter = PRIORITY_COUNTER_INIT;
 
     let start = time::Instant::now();
 
@@ -47,20 +48,39 @@ fn main() {
     // paint loop
     loop {
         // add new char to the matrix
-        let col = random_number(matrix.num_cols());
-        if char_adding_enabled {
-            let new_char = random_ascii() as char; 
-            matrix.append_char_to_stream(col, new_char);
+        for ci in 0..matrix.num_cols() {
+            if priority_counter % matrix.col_priority(ci) == 0 {
+                let new_char = random_ascii() as char; 
+                matrix.append_char_to_column(ci, new_char);
+            } 
+
+            // column "fade"
+            if column_fade_enabled {
+                let h = matrix.lead_index(ci);
+                let tail = h.checked_sub(matrix.tail_length(ci));
+                if let Some(tail_index) = tail {
+                    if tail_index < matrix.num_rows() {
+                        matrix.overwrite_char(tail.unwrap(), ci, matrix::BCHAR);
+                    }
+                }
+            }
         }
 
         // swap chars
         if char_swapping_enabled {
-            let swap_char = random_ascii() as char; 
-            let swap_col = random_number(matrix.num_cols());
-            let swap_col_height = matrix.column_height(swap_col);
-            if swap_col_height > 0 {
-                let swap_row = random_number(swap_col_height);
-                matrix.overwrite_char(swap_row, swap_col, swap_char);
+            for _ in 0..CHAR_SWAP_FACTOR {
+                let swap_char = random_ascii() as char; 
+                let swap_col = random_number(matrix.num_cols());
+                let col_lead = matrix.lead_index(swap_col);
+
+                // -1 gives us a buffer so swapping doesn't result in stray chars
+                let col_tail = col_lead.checked_sub(matrix.tail_length(swap_col) - 1);
+                if let Some(col_tail) = col_tail {
+                    let swap_row = rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
+                    if swap_row < matrix.num_rows() && swap_row > 0 {
+                        matrix.overwrite_char(swap_row, swap_col, swap_char);
+                    }
+                }
             }
         }  
 
@@ -78,21 +98,6 @@ fn main() {
             }
         }
 
-        // column "fade"
-        if column_fade_enabled {
-            let h = matrix.column_height(col);
-            if h > fade_height {
-                matrix.overwrite_char(h - fade_height, col, matrix::BCHAR);
-            }
-        }
-
-        // sliding viewport
-        if sliding_viewport_enabled {
-            if matrix.column_height(col) >= (matrix.num_rows() as u32).try_into().unwrap() {
-                matrix.remove_row(0);
-            }
-        } 
-
         // paint it
         stdout.execute(cursor::MoveTo(0, 0)).unwrap();
         let mut count = 0;
@@ -101,6 +106,11 @@ fn main() {
             stdout.execute(cursor::MoveTo(0, count)).unwrap();
             count += 1;
         }  
+
+        priority_counter += 1;
+        if priority_counter > 9999 {
+            priority_counter = PRIORITY_COUNTER_INIT;
+        }
 
         thread::sleep(frame_period); // animation speed
 
