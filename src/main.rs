@@ -13,7 +13,6 @@ use std::io::{stdout, Write};
 mod matrix;
 use matrix::Matrix;
 
-static PRIORITY_COUNTER_INIT : usize = 3;
 static CHAR_SWAP_FACTOR : usize = 5;
 
 fn random_number(n : usize) -> usize {
@@ -32,14 +31,11 @@ fn main() {
 
     // feature flags
     let auto_quit_enabled = false;
-    let blocks_enabled = true;
-    let char_swapping_enabled = true;
+    let blocks_enabled = false;
+    let char_swapping_enabled = false;
     let column_fade_enabled = true;
 
-    let frame_period = time::Duration::from_millis(5);
-    let animation_length = time::Duration::from_millis(10000);
-    let mut priority_counter = PRIORITY_COUNTER_INIT;
-
+    let auto_quit_timeout = time::Duration::from_millis(10000);
     let start = time::Instant::now();
 
     let mut stdout = stdout(); // Call the function to get the handle
@@ -47,22 +43,29 @@ fn main() {
 
     // paint loop
     loop {
-        // add new char to the matrix
+        let mut need_paint = false;
+
+        // time-based character adding, shouldn't drift
+        // though not sure how long this will run for safely
+        let diff = time::Instant::now() - start;
         for ci in 0..matrix.num_cols() {
-            if priority_counter % matrix.col_priority(ci) == 0 {
+            let next = matrix.col_next_animation(ci);
+            if diff > time::Duration::from_millis(next) {
                 let new_char = random_ascii() as char; 
                 matrix.append_char_to_column(ci, new_char);
-            } 
 
-            // column "fade"
-            if column_fade_enabled {
-                let h = matrix.lead_index(ci);
-                let tail = h.checked_sub(matrix.tail_length(ci));
-                if let Some(tail_index) = tail {
-                    if tail_index < matrix.num_rows() {
-                        matrix.overwrite_char(tail.unwrap(), ci, matrix::BCHAR);
+                if column_fade_enabled {
+                    let h = matrix.lead_index(ci);
+                    let tail = h.checked_sub(matrix.tail_length(ci));
+                    if let Some(tail_index) = tail {
+                        if tail_index < matrix.num_rows() {
+                            matrix.overwrite_char(tail.unwrap(), ci, matrix::BCHAR);
+                        }
                     }
                 }
+                let animation_period = 10 * matrix.col_priority(ci) as u64;
+                matrix.set_col_next_animation(ci, next + animation_period);
+                need_paint = true;
             }
         }
 
@@ -79,6 +82,7 @@ fn main() {
                     let swap_row = rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
                     if swap_row < matrix.num_rows() && swap_row > 0 {
                         matrix.overwrite_char(swap_row, swap_col, swap_char);
+                        need_paint = true;
                     }
                 }
             }
@@ -98,25 +102,23 @@ fn main() {
             }
         }
 
-        // paint it
-        stdout.execute(cursor::MoveTo(0, 0)).unwrap();
-        let mut count = 0;
-        for row in matrix.rows() {
-            print!("{}", row);
-            stdout.execute(cursor::MoveTo(0, count)).unwrap();
-            count += 1;
-        }  
-
-        priority_counter += 1;
-        if priority_counter > 9999 {
-            priority_counter = PRIORITY_COUNTER_INIT;
+        // paint it only when needed
+        if need_paint {
+            stdout.execute(cursor::MoveTo(0, 0)).unwrap();
+            let mut count = 0;
+            for row in matrix.rows() {
+                print!("{}", row);
+                stdout.execute(cursor::MoveTo(0, count)).unwrap();
+                count += 1;
+            }  
         }
 
-        thread::sleep(frame_period); // animation speed
+        // sleeping the thread for efficiency, not animation control 
+        thread::sleep(time::Duration::from_millis(10));
 
         // auto-quit
         if auto_quit_enabled {
-            if start.elapsed() >= animation_length {
+            if start.elapsed() >= auto_quit_timeout {
                 break;
             }
         }

@@ -16,11 +16,12 @@ struct Column {
     lead_index : usize,
     priority : usize,
     tail_length : usize,
+    next_animation: u64,
 }
 
 impl Column {
-    pub fn new(lead_index: usize, priority: usize, tail_length: usize) -> Self {
-        Self { lead_index, priority, tail_length }
+    pub fn new(lead_index: usize, priority: usize, tail_length: usize, next_animation: u64) -> Self {
+        Self { lead_index, priority, tail_length, next_animation }
     }
 }
 
@@ -32,14 +33,13 @@ pub struct Matrix {
 impl Matrix {
     pub fn new(rows : usize, cols : usize) -> Self {
         let matrix = vec![vec![BCHAR; cols]; rows];
-        let priorities: Vec<usize> = vec![7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
-             //101, 103, 107, 109, 113, 127 ];
+        let priorities: Vec<usize> = (5..50).collect();
 
         let mut columns = vec![];  
         for _ in 0..cols {
             let p = rand::thread_rng().gen_range(0..priorities.len() as u32) as usize;
             let tail = rand::thread_rng().gen_range(TAIL_MIN..TAIL_MAX as u32) as usize;
-            columns.push(Column::new(0, priorities[p], tail));
+            columns.push(Column::new(0, priorities[p], tail, 100));
         }
         Self{ matrix, columns }
     }
@@ -55,6 +55,14 @@ impl Matrix {
     pub fn col_priority(&self, col: usize) -> usize {
         self.columns[col].priority
     } 
+
+    pub fn set_col_next_animation(&mut self, col: usize, next: u64) {
+        self.columns[col].next_animation = next;
+    }
+
+    pub fn col_next_animation(&self, col: usize) -> u64{
+        self.columns[col].next_animation
+    }
 
     pub fn tail_length(&self, col: usize) -> usize {
         self.columns[col].tail_length
