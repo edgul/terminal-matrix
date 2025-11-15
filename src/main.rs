@@ -48,11 +48,32 @@ fn main() {
         // time-based character adding, shouldn't drift
         // though not sure how long this will run for safely
         let diff = time::Instant::now() - start;
+
+        // we iterate across all the columns and if enough time has passed
+        // we will animate
         for ci in 0..matrix.num_cols() {
             let next = matrix.col_next_animation(ci);
+
             if diff > time::Duration::from_millis(next) {
-                let new_char = char::from_u32(random_ascii() as u32);
-                matrix.append_char_to_column(ci, new_char.unwrap());
+                // slightly better hack than before
+                // we use first_animation bool to always make a new character
+                // the curosr square and then immediately overwrite it in the 
+                // next animation loop
+                let square_char = char::from_u32(0x2588 as u32);
+                if !matrix.col_first_animation(ci) {
+                    let new_char = char::from_u32(random_ascii() as u32).unwrap();
+                    let h = matrix.lead_index(ci);
+                    let second = h.checked_sub(1);
+                    if let Some(second_index) = second {
+                        if second_index < matrix.num_rows() {
+                            matrix.overwrite_char(second_index , ci, new_char);
+                        }
+                    }
+                    matrix.append_char_to_column(ci, square_char.unwrap());
+                } else {
+                    matrix.set_col_first_animation(ci, false);
+                    matrix.append_char_to_column(ci, square_char.unwrap());
+                }
 
                 if column_fade_enabled {
                     let h = matrix.lead_index(ci);
@@ -63,10 +84,13 @@ fn main() {
                         }
                     }
                 }
+                // we use the stream's animation priority to control the speed
+                // of each stream (ie how often it will animate)
                 let animation_period = 10 * matrix.col_priority(ci) as u64;
                 matrix.set_col_next_animation(ci, next + animation_period);
                 need_paint = true;
             }
+
 
         }
 

@@ -17,11 +17,12 @@ struct Column {
     priority : usize,
     tail_length : usize,
     next_animation: u64,
+    first_animation: bool,
 }
 
 impl Column {
     pub fn new(lead_index: usize, priority: usize, tail_length: usize, next_animation: u64) -> Self {
-        Self { lead_index, priority, tail_length, next_animation }
+        Self { lead_index, priority, tail_length, next_animation, first_animation : true }
     }
 }
 
@@ -56,12 +57,27 @@ impl Matrix {
         self.columns[col].priority
     } 
 
+    pub fn col_head_char(&self, col: usize) -> char {
+        self.matrix[self.columns[col].lead_index][col]
+    }
+     pub fn set_col_head_char(&mut self, col: usize, c: char) {
+        self.matrix[self.columns[col].lead_index][col] = c;
+    }
+
     pub fn set_col_next_animation(&mut self, col: usize, next: u64) {
         self.columns[col].next_animation = next;
     }
 
     pub fn col_next_animation(&self, col: usize) -> u64{
         self.columns[col].next_animation
+    }
+
+    pub fn col_first_animation(&self, col: usize) -> bool {
+        self.columns[col].first_animation
+    }
+
+    pub fn set_col_first_animation(&mut self, col: usize, first: bool) {
+        self.columns[col].first_animation = first;
     }
 
     pub fn tail_length(&self, col: usize) -> usize {
@@ -76,12 +92,7 @@ impl Matrix {
                 row = 0;
             }
         } else {
-            // hack to make cursor be at head, not flashing though
-            let square_char = char::from_u32(0x2588 as u32).unwrap();
-            if row > 0 {
-                self.matrix[row-1][col] = c;
-            }
-            self.matrix[row][col] = square_char;
+            self.matrix[row][col] = c;
         }
         self.columns[col].lead_index = row + 1;
     }
