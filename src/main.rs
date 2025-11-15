@@ -19,8 +19,8 @@ fn random_number(n : usize) -> usize {
     rand::thread_rng().gen_range(0..n as u32) as usize
 }
 
-fn random_ascii() -> u8 {
-    rand::thread_rng().gen_range(33..126)
+fn random_ascii() -> u16 {
+    rand::thread_rng().gen_range(260..700)
 }
 
 fn main() {
@@ -51,8 +51,8 @@ fn main() {
         for ci in 0..matrix.num_cols() {
             let next = matrix.col_next_animation(ci);
             if diff > time::Duration::from_millis(next) {
-                let new_char = random_ascii() as char; 
-                matrix.append_char_to_column(ci, new_char);
+                let new_char = char::from_u32(random_ascii() as u32);
+                matrix.append_char_to_column(ci, new_char.unwrap());
 
                 if column_fade_enabled {
                     let h = matrix.lead_index(ci);
@@ -67,12 +67,13 @@ fn main() {
                 matrix.set_col_next_animation(ci, next + animation_period);
                 need_paint = true;
             }
+
         }
 
         // swap chars
         if char_swapping_enabled {
             for _ in 0..CHAR_SWAP_FACTOR {
-                let swap_char = random_ascii() as char; 
+                let swap_char = char::from_u32(random_ascii() as u32);
                 let swap_col = random_number(matrix.num_cols());
                 let col_lead = matrix.lead_index(swap_col);
 
@@ -81,7 +82,7 @@ fn main() {
                 if let Some(col_tail) = col_tail {
                     let swap_row = rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
                     if swap_row < matrix.num_rows() && swap_row > 0 {
-                        matrix.overwrite_char(swap_row, swap_col, swap_char);
+                        matrix.overwrite_char(swap_row, swap_col, swap_char.unwrap());
                         need_paint = true;
                     }
                 }
@@ -106,8 +107,12 @@ fn main() {
         if need_paint {
             stdout.execute(cursor::MoveTo(0, 0)).unwrap();
             let mut count = 0;
-            for row in matrix.rows() {
-                print!("{}", row);
+            for (i, row) in matrix.rows().into_iter().enumerate() {
+                for (ci, c) in row.chars().enumerate() {
+                    let h = matrix.lead_index(ci);
+                    let mut p = c;
+                    print!("{}", p);
+                }
                 stdout.execute(cursor::MoveTo(0, count)).unwrap();
                 count += 1;
             }  

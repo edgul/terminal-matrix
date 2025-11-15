@@ -76,7 +76,12 @@ impl Matrix {
                 row = 0;
             }
         } else {
-            self.matrix[row][col] = c;
+            // hack to make cursor be at head, not flashing though
+            let square_char = char::from_u32(0x2588 as u32).unwrap();
+            if row > 0 {
+                self.matrix[row-1][col] = c;
+            }
+            self.matrix[row][col] = square_char;
         }
         self.columns[col].lead_index = row + 1;
     }
