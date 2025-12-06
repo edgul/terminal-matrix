@@ -47,6 +47,8 @@ fn main() {
 
         // time-based character adding, shouldn't drift
         // though not sure how long this will run for safely
+        // todo: also this approach can probably miss paints
+        // if it takes too long to go around the loop
         let diff = time::Instant::now() - start;
 
         // we iterate across all the columns and if enough time has passed
@@ -137,6 +139,8 @@ fn main() {
                     let mut p = c;
                     print!("{}", p);
                 }
+                // todo: but I think we are repainting excessively,
+                // doing the whole row when maybe not needed
                 stdout.execute(cursor::MoveTo(0, count)).unwrap();
                 count += 1;
             }  
