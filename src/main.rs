@@ -37,11 +37,12 @@ fn main() {
     let auto_quit_enabled = false;
     let auto_quit_timeout = time::Duration::from_millis(10000);
     let start = time::Instant::now();
+    let block_size : usize = (cols/5) as usize;
 
     // matrix-mutate thread -- adds characters to the matrix
     thread::spawn(move || {
         let column_fade_enabled = true;
-        let blocks_enabled = false; // perf regression
+        let blocks_enabled = true;
         let char_swapping_enabled = true;
         //
         let mut last_swap_diff = start;
@@ -52,9 +53,13 @@ fn main() {
             // for each column add character if enough time has passed for next char
             let mut matrix = matrix_thread.lock().unwrap();
             for ci in 0..matrix.num_cols() {
-                let next = matrix.col_next_animation(ci);
+                if blocks_enabled && ci % block_size == 0 {
+                    // works, but hard to see
+                    continue;
+                }
 
                 // time-based character adding, shouldn't drift
+                let next = matrix.col_next_animation(ci);
                 if diff > time::Duration::from_millis(next) {
                     // slightly better hack than before
                     // we use first_animation bool to always make a new character
@@ -112,21 +117,6 @@ fn main() {
                     last_swap_diff = now;
                 }
             }  
-
-            // todo: performance problems just being dropped in like this
-            // divide into blocks
-            if blocks_enabled {
-                let block_size = matrix.num_cols() / 5;
-                if block_size > 4 {
-                    let divisible_numbers: Vec<usize> = (0..matrix.num_cols()-1) // -1 to clear two columns
-                        .filter(|&x| x % block_size == 0)
-                        .collect();
-                    for i in divisible_numbers {
-                        matrix.clear_col(i);
-                        matrix.clear_col(i+1);
-                    }
-                }
-            }
         }
     });
 
