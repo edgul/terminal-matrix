@@ -15,6 +15,7 @@ use std::io::{stdout, Write};
 mod matrix;
 use matrix::Matrix;
 
+// reduce this value to increase the frequency of char swapping
 static CHAR_SWAP_FACTOR : usize = 5;
 
 fn random_number(n : usize) -> usize {
@@ -41,7 +42,9 @@ fn main() {
     thread::spawn(move || {
         let column_fade_enabled = true;
         let blocks_enabled = false; // perf regression
-        let char_swapping_enabled = false; // perf regression
+        let char_swapping_enabled = true;
+        //
+        let mut last_swap_diff = start;
 
         loop { // mutate-matrix loop
             let diff = time::Instant::now() - start;
@@ -89,10 +92,11 @@ fn main() {
                 }
             }
 
-            // todo: performance problems dropped in here
             // swap chars
             if char_swapping_enabled {
-                for _ in 0..CHAR_SWAP_FACTOR {
+                let now = time::Instant::now();
+                let swap_diff = now - last_swap_diff;
+                if swap_diff > time::Duration::from_millis(CHAR_SWAP_FACTOR as u64) {
                     let swap_char = char::from_u32(random_ascii() as u32);
                     let swap_col = random_number(matrix.num_cols());
                     let col_lead = matrix.lead_index(swap_col);
@@ -105,6 +109,7 @@ fn main() {
                             matrix.overwrite_char(swap_row, swap_col, swap_char.unwrap());
                         }
                     }
+                    last_swap_diff = now;
                 }
             }  
 
