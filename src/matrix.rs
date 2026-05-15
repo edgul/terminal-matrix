@@ -26,9 +26,16 @@ impl Column {
     }
 }
 
+pub struct Cell {
+    pub col: usize, // x
+    pub row: usize, // y
+    pub character: char,
+}
+
 pub struct Matrix {
     matrix : Vec<Vec<char>>,
     columns : Vec<Column>,
+    pub dirty: Vec<Cell>,
 }
 
 impl Matrix {
@@ -42,7 +49,7 @@ impl Matrix {
             let tail = rand::thread_rng().gen_range(TAIL_MIN..TAIL_MAX as u32) as usize;
             columns.push(Column::new(0, priorities[p], tail, 100));
         }
-        Self{ matrix, columns }
+        Self{ matrix, columns, dirty: vec![]}
     }
 
     pub fn num_cols(&self) -> usize {
@@ -95,10 +102,12 @@ impl Matrix {
             self.matrix[row][col] = c;
         }
         self.columns[col].lead_index = row + 1;
+        self.dirty.push(Cell {col, row, character: c });
     }
 
     pub fn overwrite_char(&mut self, row : usize, col : usize, c : char) {
         self.matrix[row][col] = c;
+        self.dirty.push(Cell{ col, row, character: c })
     }
 
     pub fn clear_col(&mut self, col : usize) {

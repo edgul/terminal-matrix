@@ -7,6 +7,8 @@ use rand::Rng;
 use crossterm::{
     cursor,
     execute,
+    queue,
+    style::Print,
     terminal::{self, ClearType},
     ExecutableCommand,
 };
@@ -126,19 +128,17 @@ fn main() {
     loop { // paint loop
         stdout.execute(cursor::MoveTo(0, 0)).unwrap();
 
-        { // scope the mutex so mutate loop can pickup during main thread sleep
-            let matrix = matrix.lock().unwrap();
-            let mut count = 0;
-            for (_, row) in matrix.rows().into_iter().enumerate() {
-                for (_, c) in row.chars().enumerate() {
-                    print!("{}", c);
-                }
-                // todo: but I think we are repainting excessively,
-                // doing the whole row when maybe not needed
-                stdout.execute(cursor::MoveTo(0, count)).unwrap();
-                count += 1;
-            }  
+        let dirty = {
+            let mut matrix = matrix.lock().unwrap();
+            std::mem::take(&mut matrix.dirty)
+        };
+        // only re-print changed characters
+        for cell in dirty {
+            queue!(stdout, cursor::MoveTo(cell.col as u16, cell.row as u16),
+                Print(cell.character)).unwrap();
         }
+        stdout.flush().unwrap(); // only flush once per frame
+
         if auto_quit_enabled {
             if start.elapsed() >= auto_quit_timeout {
                 // don't join because the mutate thread will never finish
