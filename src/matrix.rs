@@ -2,7 +2,12 @@
 use rand;
 use rand::Rng;
 
+use crossterm::style::Color;
+
 pub static BCHAR : char = ' ';
+
+static BRIGHT_GREEN: Color = Color::Rgb { r: 180, g: 255, b: 180 };
+static GREEN: Color = Color::Rgb { r: 0, g: 185, b: 45 };
 
 static TAIL_MIN : u32 = 4;
 static TAIL_MAX : u32 = 18;
@@ -25,6 +30,7 @@ pub struct Cell {
     pub col: usize, // x
     pub row: usize, // y
     pub character: char,
+    pub color: Color,
 }
 
 pub struct Matrix {
@@ -90,25 +96,24 @@ impl Matrix {
             if row > 0 {
                 last_row = Some(row-1);
             }
-            // lead char in stream (square) only needed in visible viewport
-            let square_char = char::from_u32(0x2588 as u32).unwrap();
-            self.dirty.push(Cell {col, row, character: square_char });
+            self.dirty.push(Cell {col, row, character: c, color: BRIGHT_GREEN });
             self.columns[col].lead_index = row + 1;
         }
 
         if let Some(last_row) = last_row { // second letter in stream
-            self.dirty.push( Cell{ col, row: last_row, character: c })
+            let prev_char = self.matrix[last_row][col];
+            self.dirty.push(Cell{ col, row: last_row, character: prev_char, color: GREEN })
         }
-       
+
         // tail char gets cleared (aka column fade)
         if let Some(tail) = row.checked_sub(self.tail_length(col)) {
-            self.dirty.push(Cell {col, row: tail, character: BCHAR });
+            self.dirty.push(Cell {col, row: tail, character: BCHAR, color: Color::Reset });
         }
     }
 
     pub fn overwrite_char(&mut self, row : usize, col : usize, c : char) {
         self.matrix[row][col] = c;
-        self.dirty.push(Cell{ col, row, character: c })
+        self.dirty.push(Cell{ col, row, character: c, color: GREEN })
     }
 
     pub fn lead_index(&self, col : usize) -> usize {

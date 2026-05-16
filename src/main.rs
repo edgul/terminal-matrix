@@ -7,7 +7,7 @@ use rand::Rng;
 use crossterm::{
     cursor,
     queue,
-    style::Print,
+    style::{Print, SetForegroundColor},
     terminal::{self, ClearType},
     ExecutableCommand,
 };
@@ -86,7 +86,9 @@ fn main() {
                     }
                     last_swap_diff = now;
                 }
-            }  
+            }
+            drop(matrix);
+            thread::sleep(time::Duration::from_millis(1));
         }
     });
 
@@ -94,16 +96,17 @@ fn main() {
     let mut stdout = stdout(); // Call the function to get the handle
     stdout.execute(terminal::Clear(ClearType::All)).unwrap();
     loop { // paint loop
-        stdout.execute(cursor::MoveTo(0, 0)).unwrap();
-
         // only re-print changed (dirty) characters
         let dirty_cells = {
             let mut matrix = matrix.lock().unwrap();
             std::mem::take(&mut matrix.dirty)
         };
         for cell in dirty_cells {
-            queue!(stdout, cursor::MoveTo(cell.col as u16, cell.row as u16),
-                Print(cell.character)).unwrap();
+            queue!(stdout,
+                cursor::MoveTo(cell.col as u16, cell.row as u16),
+                SetForegroundColor(cell.color),
+                Print(cell.character)
+            ).unwrap();
         }
         stdout.flush().unwrap(); // only flush once per frame
 
