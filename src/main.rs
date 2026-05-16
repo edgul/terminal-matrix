@@ -16,8 +16,7 @@ use std::io::{stdout, Write};
 mod matrix;
 use matrix::Matrix;
 
-// reduce this value to increase the frequency of char swapping
-static CHAR_SWAP_FACTOR : usize = 5;
+static CHAR_SWAP_FACTOR : usize = 5; // reduce to increase frequency of char swapping
 
 fn random_number(n : usize) -> usize {
     rand::thread_rng().gen_range(0..n as u32) as usize
@@ -46,11 +45,10 @@ fn main() {
         let blocks_enabled = true;
         let char_swapping_enabled = true;
 
+        // mutate-matrix loop
         let mut last_swap_diff = start;
-        loop { // mutate-matrix loop
+        loop {
             let diff = time::Instant::now() - start;
-
-            // for each column add character if enough time has passed for next char
             let mut matrix = matrix_thread.lock().unwrap();
             for ci in 0..matrix.num_cols() {
                 if blocks_enabled && ci % block_size == 0 {
@@ -61,7 +59,7 @@ fn main() {
                 // time-based character adding, shouldn't drift
                 let next = matrix.col_next_animation(ci);
                 if diff > time::Duration::from_millis(next) {
-                    // try to add new char
+                    // try to add new char, chars will not be added outside viewport
                     let new_char = char::from_u32(random_ascii() as u32).unwrap();
                     matrix.append_char_to_column(ci, new_char);
 
@@ -72,7 +70,6 @@ fn main() {
                 }
             }
 
-            // swap chars
             if char_swapping_enabled {
                 let now = time::Instant::now();
                 let swap_diff = now - last_swap_diff;
@@ -80,12 +77,10 @@ fn main() {
                     let swap_char = char::from_u32(random_ascii() as u32);
                     let swap_col = random_number(matrix.num_cols());
                     let col_lead = matrix.lead_index(swap_col);
-
-                    // -1 gives us a buffer so swapping doesn't result in stray chars
-                    let col_tail = col_lead.checked_sub(matrix.tail_length(swap_col) - 1);
+                    let col_tail = col_lead.checked_sub(matrix.tail_length(swap_col));
                     if let Some(col_tail) = col_tail {
                         let swap_row = rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
-                        if swap_row < matrix.num_rows() && swap_row > 0 {
+                        if swap_row < matrix.num_rows() {
                             matrix.overwrite_char(swap_row, swap_col, swap_char.unwrap());
                         }
                     }
