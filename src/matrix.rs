@@ -4,12 +4,8 @@ use rand::Rng;
 
 pub static BCHAR : char = ' ';
 
-static PRIORITY_MIN : u32 = 20;
-static PRIORITY_MAX : u32 = 1;
 static TAIL_MIN : u32 = 4;
 static TAIL_MAX : u32 = 18;
-
-
 
 #[derive(Clone)]
 struct Column {
@@ -17,12 +13,11 @@ struct Column {
     priority : usize,
     tail_length : usize,
     next_animation: u64,
-    first_animation: bool,
 }
 
 impl Column {
     pub fn new(lead_index: usize, priority: usize, tail_length: usize, next_animation: u64) -> Self {
-        Self { lead_index, priority, tail_length, next_animation, first_animation : true }
+        Self { lead_index, priority, tail_length, next_animation }
     }
 }
 
@@ -64,13 +59,6 @@ impl Matrix {
         self.columns[col].priority
     } 
 
-    pub fn col_head_char(&self, col: usize) -> char {
-        self.matrix[self.columns[col].lead_index][col]
-    }
-     pub fn set_col_head_char(&mut self, col: usize, c: char) {
-        self.matrix[self.columns[col].lead_index][col] = c;
-    }
-
     pub fn set_col_next_animation(&mut self, col: usize, next: u64) {
         self.columns[col].next_animation = next;
     }
@@ -79,30 +67,43 @@ impl Matrix {
         self.columns[col].next_animation
     }
 
-    pub fn col_first_animation(&self, col: usize) -> bool {
-        self.columns[col].first_animation
-    }
-
-    pub fn set_col_first_animation(&mut self, col: usize, first: bool) {
-        self.columns[col].first_animation = first;
-    }
-
     pub fn tail_length(&self, col: usize) -> usize {
         self.columns[col].tail_length
     }
 
     pub fn append_char_to_column(&mut self, col : usize, c : char) {
         let mut row = self.columns[col].lead_index;
+        let mut last_row: Option<usize> = None;
         if row >= self.matrix.len() {
+            // if we go over the view hieght then we don't reset yet to spread
+            // out the streams from each other
+            // but if we exceed the REAL bottom then we reset
             if row >= self.matrix.len() + TAIL_MAX as usize {
                 self.columns[col].lead_index = 0;
                 row = 0;
+            } else {
+                last_row = Some(self.num_rows()-1);
+                self.columns[col].lead_index = row + 1;
             }
         } else {
             self.matrix[row][col] = c;
+            if row > 0 {
+                last_row = Some(row-1);
+            }
+            // lead char in stream (square) only needed in visible viewport
+            let square_char = char::from_u32(0x2588 as u32).unwrap();
+            self.dirty.push(Cell {col, row, character: square_char });
+            self.columns[col].lead_index = row + 1;
         }
-        self.columns[col].lead_index = row + 1;
-        self.dirty.push(Cell {col, row, character: c });
+
+        if let Some(last_row) = last_row { // second letter in stream
+            self.dirty.push( Cell{ col, row: last_row, character: c })
+        }
+       
+        // tail char gets cleared (aka column fade)
+        if let Some(tail) = row.checked_sub(self.tail_length(col)) {
+            self.dirty.push(Cell {col, row: tail, character: BCHAR });
+        }
     }
 
     pub fn overwrite_char(&mut self, row : usize, col : usize, c : char) {
@@ -110,31 +111,7 @@ impl Matrix {
         self.dirty.push(Cell{ col, row, character: c })
     }
 
-    pub fn clear_col(&mut self, col : usize) {
-        for row in self.matrix.iter_mut() {
-            row[col] = BCHAR;
-        }
-    }
-
-    pub fn remove_row(&mut self, num : u8) {
-        self.matrix.remove(num as usize);
-        self.matrix.push(vec![BCHAR; self.num_cols()]);
-        for j in self.columns.iter_mut() {
-            if j.lead_index > 0 {
-                j.lead_index -= 1;
-            }
-        }
-    }
-
     pub fn lead_index(&self, col : usize) -> usize {
         self.columns[col].lead_index
-    }
-
-    pub fn rows(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec![];
-        for row in self.matrix.iter() {
-            res.push(row.into_iter().collect());
-        }
-        res 
     }
 }

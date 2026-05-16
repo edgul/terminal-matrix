@@ -6,7 +6,6 @@ use rand::Rng;
 
 use crossterm::{
     cursor,
-    execute,
     queue,
     style::Print,
     terminal::{self, ClearType},
@@ -31,6 +30,7 @@ fn random_ascii() -> u16 {
 fn main() {
     println!("wake up, neo");
     let (cols, rows) = terminal::size().unwrap();
+
     // Arc + Mutex for sharing matrix
     // since multi-read threads not used, no need for RwLock
     let matrix = Arc::new(Mutex::new(Matrix::new(rows as usize, cols as usize)));
@@ -43,12 +43,10 @@ fn main() {
 
     // matrix-mutate thread -- adds characters to the matrix
     thread::spawn(move || {
-        let column_fade_enabled = true;
         let blocks_enabled = true;
         let char_swapping_enabled = true;
-        //
-        let mut last_swap_diff = start;
 
+        let mut last_swap_diff = start;
         loop { // mutate-matrix loop
             let diff = time::Instant::now() - start;
 
@@ -63,35 +61,10 @@ fn main() {
                 // time-based character adding, shouldn't drift
                 let next = matrix.col_next_animation(ci);
                 if diff > time::Duration::from_millis(next) {
-                    // slightly better hack than before
-                    // we use first_animation bool to always make a new character
-                    // the cursor square and then immediately overwrite it in the 
-                    // next animation loop
-                    let square_char = char::from_u32(0x2588 as u32);
-                    if !matrix.col_first_animation(ci) {
-                        let new_char = char::from_u32(random_ascii() as u32).unwrap();
-                        let h = matrix.lead_index(ci);
-                        let second = h.checked_sub(1);
-                        if let Some(second_index) = second {
-                            if second_index < matrix.num_rows() {
-                                matrix.overwrite_char(second_index , ci, new_char);
-                            }
-                        }
-                        matrix.append_char_to_column(ci, square_char.unwrap());
-                    } else {
-                        matrix.set_col_first_animation(ci, false);
-                        matrix.append_char_to_column(ci, square_char.unwrap());
-                    }
+                    // try to add new char
+                    let new_char = char::from_u32(random_ascii() as u32).unwrap();
+                    matrix.append_char_to_column(ci, new_char);
 
-                    if column_fade_enabled {
-                        let h = matrix.lead_index(ci);
-                        let tail = h.checked_sub(matrix.tail_length(ci));
-                        if let Some(tail_index) = tail {
-                            if tail_index < matrix.num_rows() {
-                                matrix.overwrite_char(tail.unwrap(), ci, matrix::BCHAR);
-                            }
-                        }
-                    }
                     // we use the stream's animation priority to control the speed
                     // of each stream (ie how often it will animate)
                     let animation_period = 10 * matrix.col_priority(ci) as u64;
@@ -128,12 +101,12 @@ fn main() {
     loop { // paint loop
         stdout.execute(cursor::MoveTo(0, 0)).unwrap();
 
-        let dirty = {
+        // only re-print changed (dirty) characters
+        let dirty_cells = {
             let mut matrix = matrix.lock().unwrap();
             std::mem::take(&mut matrix.dirty)
         };
-        // only re-print changed characters
-        for cell in dirty {
+        for cell in dirty_cells {
             queue!(stdout, cursor::MoveTo(cell.col as u16, cell.row as u16),
                 Print(cell.character)).unwrap();
         }
