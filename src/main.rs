@@ -4,8 +4,7 @@ use rand;
 use rand::Rng;
 
 use crossterm::{
-    cursor,
-    queue,
+    cursor, queue,
     style::{Print, SetForegroundColor},
     terminal::{self, ClearType},
     ExecutableCommand,
@@ -69,7 +68,8 @@ fn main() {
                 let col_lead = matrix.lead_index(swap_col);
                 let col_tail = col_lead.checked_sub(matrix.tail_length(swap_col));
                 if let Some(col_tail) = col_tail {
-                    let swap_row = rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
+                    let swap_row =
+                        rand::thread_rng().gen_range(col_tail as u32..col_lead as u32) as usize;
                     if swap_row < matrix.num_rows() {
                         matrix.overwrite_char(swap_row, swap_col, swap_char.unwrap());
                     }
@@ -81,11 +81,13 @@ fn main() {
         let dirty_cells = std::mem::take(&mut matrix.dirty);
         if !dirty_cells.is_empty() {
             for cell in dirty_cells {
-                queue!(stdout,
+                queue!(
+                    stdout,
                     cursor::MoveTo(cell.col as u16, cell.row as u16),
                     SetForegroundColor(cell.color),
                     Print(cell.character)
-                ).unwrap();
+                )
+                .unwrap();
             }
             stdout.flush().unwrap();
         }
